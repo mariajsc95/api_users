@@ -22,7 +22,7 @@ const create = async (req, res, next) => {
         return;
       }
   
-        let hash = crypto.encrypt(req.body.password);
+        //let hash = crypto.encrypt(req.body.password);
         const rolId = await models.Rol.findOne({
           where: {nombre : req.body.rol},
         }).catch(err => {throw err})
@@ -30,7 +30,7 @@ const create = async (req, res, next) => {
         
         const user = await models.User.create({
           usuario: req.body.usuario,
-          password: hash,
+          password: req.body.password,
           status: req.body.status,
           createdAt: new Date(),
           updateAt: new Date(),
@@ -64,10 +64,11 @@ const create = async (req, res, next) => {
 
   const findAll = async (req, res, next) => {
     try {
+      console.log("FIND ALL USERS")
       const users = await models.User.findAll({
         include: [{
           model: models.Rol,
-          through: { attributes: ["id"] },
+          through: { attributes: ["uro_rol_id"] },
         }], raw:true
       });
 
@@ -90,7 +91,7 @@ const create = async (req, res, next) => {
 
   const update = async (req, res, next) => {
  
-    const { id } = req.params;
+    const { id } = req.body;
     //let hash = crypto.encrypt(req.body.usr_password);
       try {
           const [updated] = await models.User.update({
@@ -103,10 +104,15 @@ const create = async (req, res, next) => {
           });
 
           if (updated) {
-            const rol = await models.user_rol.update({
-                uro_rol_id: req.body.rol
-            },{ where: { uro_user_id : id}});
+            const rol = await models.Rol.findOne({
+              where : { nombre: req.body.rol }
+            })
+
             if(rol){
+              const user_rol = await models.user_rol.update({
+                uro_rol_id: rol.dataValues.id
+            },{ where: { uro_user_id : id}});
+            if(user_rol){
                 const message = properties.get("message.user.res.Updated");
                 const updateUser = await models.User.findOne({
                     where: { id: id },
@@ -116,6 +122,9 @@ const create = async (req, res, next) => {
             const message = properties.get("message.user.res.notDataToUpdate");
             res.status(HttpStatus.StatusCodes.NOT_FOUND).json(message);
           }
+            }
+
+  
         }else {
             const message = properties.get("message.res.errorInternalServer");
             res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
@@ -178,15 +187,16 @@ const logUser = async(req, res, next) => {
     })
     console.log(userToLog)
     if(userToLog){
-
-      let result = crypto.validate(password, userToLog.dataValues.password) 
-      if(result) {
-         const message = properties.get("message.res.okData");
+      const message = properties.get("message.res.okData");
       return res.status(HttpStatus.StatusCodes.OK).json(userToLog.dataValues);
-      }else {
-        const message = properties.get("message.login.res.notPasswordUserLogin");
-      return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
-      }
+      // let result = crypto.validate(password, userToLog.dataValues.password) 
+      // if(result) {
+      //    const message = properties.get("message.res.okData");
+      // return res.status(HttpStatus.StatusCodes.OK).json(userToLog.dataValues);
+      // }else {
+      //   const message = properties.get("message.login.res.notPasswordUserLogin");
+      // return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+      // }
      
     }else {
       const message = properties.get("message.login.res.notPasswordUserLogin");

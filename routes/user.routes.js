@@ -5,7 +5,7 @@ module.exports = app => {
     router.post("/create", users.create);
     router.post("/login", users.logUser);
     router.get("/all", users.findAll);
-    router.put("/update/:id", users.update)
+    router.put("/update", users.update)
     router.put("/asign-rol/:id", users.updateUserRol)
    
     app.use('/api/usuario', router);
