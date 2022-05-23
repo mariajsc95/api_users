@@ -1,6 +1,7 @@
 const HttpStatus = require("http-status-codes");
 const  models  = require("../models");
 const PropertiesReader = require("properties-reader");
+const crypto = require("../utils/encryptPassword");
 
 const properties = PropertiesReader("./bin/common.properties");
 // Create and Save a new Tutorial
@@ -21,7 +22,7 @@ const create = async (req, res, next) => {
         return;
       }
   
-        //let hash = crypto.encrypt(req.body.usr_password);
+        let hash = crypto.encrypt(req.body.password);
         const rolId = await models.Rol.findOne({
           where: {nombre : req.body.rol},
         }).catch(err => {throw err})
@@ -29,7 +30,7 @@ const create = async (req, res, next) => {
         
         const user = await models.User.create({
           usuario: req.body.usuario,
-          password: req.body.password,
+          password: hash,
           status: req.body.status,
           createdAt: new Date(),
           updateAt: new Date(),
@@ -66,12 +67,20 @@ const create = async (req, res, next) => {
       const users = await models.User.findAll({
         include: [{
           model: models.Rol,
-          through: { attributes: [] },
+          through: { attributes: ["id"] },
         }], raw:true
       });
 
-      const message = properties.get("message.res.okData");
+      if(users) {
+         const message = properties.get("message.res.okData");
       return res.status(HttpStatus.StatusCodes.OK).json({ data: users });
+      }
+      else{
+        const message = properties.get("message.res.errorInternalServer");
+      return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message });
+      }
+
+     
     } catch (err) {
       console.log(err)  
       const message = properties.get("message.res.errorInternalServer");
@@ -151,7 +160,7 @@ const logUser = async(req, res, next) => {
   try {     
       const user      = req.body.usuario;
       const password  = req.body.password;
-      console.log(req.body)
+    
     if (user === "") {
       const message = properties.get("message.login.res.notEmail");
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({message});
@@ -161,7 +170,7 @@ const logUser = async(req, res, next) => {
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({message});
     }
     const userToLog =  await models.User.findOne({   
-            where: { usuario: user, password: password },
+            where: { usuario: user },
     }).catch(err=>{
       console.log(err)
       const message = properties.get("message.login.res.notPasswordUserLogin");
@@ -169,8 +178,16 @@ const logUser = async(req, res, next) => {
     })
     console.log(userToLog)
     if(userToLog){
-      const message = properties.get("message.res.okData");
+
+      let result = crypto.validate(password, userToLog.dataValues.password) 
+      if(result) {
+         const message = properties.get("message.res.okData");
       return res.status(HttpStatus.StatusCodes.OK).json(userToLog.dataValues);
+      }else {
+        const message = properties.get("message.login.res.notPasswordUserLogin");
+      return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+      }
+     
     }else {
       const message = properties.get("message.login.res.notPasswordUserLogin");
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
