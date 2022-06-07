@@ -7,6 +7,9 @@ module.exports = app => {
     router.get("/all", users.findAll);
     router.put("/update", users.update)
     router.put("/asign-rol/:id", users.updateUserRol)
+    router.post("/send-code/:type", users.sendCode)
+    router.post("/change-password",users.newPassword)
+    router.post("/activate-user",users.activateUser)
    
     app.use('/api/usuario', router);
   };

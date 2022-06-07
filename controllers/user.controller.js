@@ -1,10 +1,57 @@
+const nodemailer = require("nodemailer");
 const HttpStatus = require("http-status-codes");
 const  models  = require("../models");
 const PropertiesReader = require("properties-reader");
 const crypto = require("../utils/encryptPassword");
 
+
 const properties = PropertiesReader("./bin/common.properties");
 // Create and Save a new Tutorial
+
+
+// create transporter object with smtp server details
+const getTransport = () => {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    // service: 'gmail',
+    secure: false,
+    pool: true,
+    auth: {
+      user: 'mariajsc.95@gmail.com',
+      pass: 'ggorsqdsxnwmeiqc'
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
+};
+
+const sendEmail = async (data) => {
+  const { email, username, code } = data;
+  console.log("SEND EMAIL");
+  const transport = await getTransport();
+  const message = {
+    from: 'mariajsc.95@gmail.com', // Sender address
+    to: email, // List of recipients
+    subject: 'Envio de codigo', // Subject line
+    text: `Se ha enviado el siguiente codigo para uso en la aplicacion: ${code}` + "\n\nCuenta no monitoreada no responda este correo", // Plain text body
+  };
+  //console.log(message);
+  await transport.sendMail(message, function (err, info) {
+    transport.close();
+
+    if (err) {
+      console.error('ERROR',{ err, sent: false });
+      //res.status(500).send({error: err})
+      send(err);
+    } else {
+      console.log({ info });
+      return { info, sent: true };
+    }
+  });
+
+}
 
 const create = async (req, res, next) => {
     try {
@@ -181,14 +228,21 @@ const logUser = async(req, res, next) => {
     const userToLog =  await models.User.findOne({   
             where: { usuario: user },
     }).catch(err=>{
-      console.log(err)
+      console.log("ERROR",err)
       const message = properties.get("message.login.res.notPasswordUserLogin");
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
     })
-    console.log(userToLog)
     if(userToLog){
-      const message = properties.get("message.res.okData");
-      return res.status(HttpStatus.StatusCodes.OK).json(userToLog.dataValues);
+      console.log("USUARIO TO LOG", userToLog.dataValues)
+      if(userToLog.dataValues.status === "Activo"){
+        const message = properties.get("message.login.res.okData");
+        return res.status(HttpStatus.StatusCodes.OK).json(userToLog.dataValues);
+      }else {
+        const message = properties.get("message.login.res.notActiveUser");
+        return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+      }
+
+      
       // let result = crypto.validate(password, userToLog.dataValues.password) 
       // if(result) {
       //    const message = properties.get("message.res.okData");
@@ -212,12 +266,185 @@ const logUser = async(req, res, next) => {
   
 };
   
+const sendCode = async(req, res, next) => {
+  const { usuario, email} = req.body;
+  const { type } =  req.params;
+  try {
+    let emailResponse;
+    let characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    let result = ''
+    let length = 10 // Customize the length here.
+    for (let i = length; i > 0; --i) result += characters[Math.round(Math.random() * (characters.length - 1))]
 
+      const userExist = await models.User.findOne({
+        where: {usuario: usuario}
+      }).catch(err => {throw err})
+      if(userExist){
+        const regCode = await models.Codes.findOne({
+          where: { id_usuario: userExist.dataValues.id, tipo_codigo: type}
+        }).catch(err => {throw err})
+        if(regCode){
+          //hacer update del codigo
+          const updateCode = await models.Codes.update({
+            codigo: result
+          },{
+            where: { id_usuario: userExist.dataValues.id, tipo_codigo: type }
+          }).catch(err => {throw err})
+          if(updateCode){
+            emailResponse = sendEmail({
+              email: email,
+              username: usuario,
+              code: result
+            })
+            console.log('EMAIL RESPONSE',emailResponse)
+            if(!emailResponse.err){
+              const message = properties.get("message.login.res.sendCodeSuccessful");
+              return res.status(HttpStatus.StatusCodes.OK).json({ message });
+            }else {
+              const message = properties.get("message.res.sendCodeError");
+              return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
+
+            }
+          }
+        }
+        else{
+          //registrar
+          const newCode = await models.Codes.create({
+            id_usuario: userExist.dataValues.id,
+            tipo_codigo: type,
+            codigo: result
+          }).catch(err => {throw err})
+
+          if(newCode){
+            emailResponse = sendEmail({
+              email: email,
+              username: usuario,
+              code: result
+            })
+            console.log('EMAIL RESPONSE',emailResponse)
+            if(!emailResponse.err){
+              const message = properties.get("message.login.res.sendCodeSuccessful");
+              return res.status(HttpStatus.StatusCodes.OK).json({ message });
+            }else {
+              const message = properties.get("message.res.sendCodeError");
+              return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
+
+            }
+          }
+          
+        }
+      }
+      else{
+        const message = properties.get("message.login.res.userDontExist");
+        return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+      }
+  }
+  catch (err) {
+    console.log(err)
+    const message = properties.get("message.res.errorInternalServer");
+    return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
+  }
+}
+
+const newPassword = async(req, res, next) => {
+  const { usuario, newPass, code} = req.body;
+  console.log('NUEVA CONTRASENA',newPass)
+  try{
+    if(!usuario || !newPass || !code) return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message:"todos los campos son requeridos" });
+    const userExist = await models.User.findOne({
+      where: {usuario: usuario}
+    }).catch(err => {throw err})
+
+    if(userExist){
+      const validCode = await models.Codes.findOne({
+        where: {id_usuario: userExist.dataValues.id, codigo: code }
+      }).catch(err => {throw err})
+      if(validCode){
+        const updateUser = await models.User.update({password: newPass},
+        {where: { id: userExist.dataValues.id}}
+        ).catch(err => {throw err})
+
+        if(updateUser) {
+          const message = properties.get("message.login.res.changePassSuccessful");
+          return res.status(HttpStatus.StatusCodes.OK).json({ message });
+        }
+        else{
+          const message = properties.get("message.login.res.changePassError");
+          return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+        }
+      }
+      else{
+        const message = properties.get("message.login.res.invalidCode");
+        return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+      }
+    }
+
+    else{
+      const message = properties.get("message.login.res.userDontExist");
+      return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+    }
+
+
+  }catch(err) {
+    console.log(err)
+    const message = properties.get("message.res.errorInternalServer");
+    return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
+  }
+
+
+}
+
+const activateUser = async(req,res,next) => {
+    const { usuario, code} = req.body;
+    try{
+      const userExist = await models.User.findOne({
+        where: {usuario: usuario}
+      }).catch(err => {throw err})
+      if(userExist) {
+        const validCode = await models.Codes.findOne({
+          where: {id_usuario: userExist.dataValues.id, codigo: code }
+        }).catch(err => {throw err})
+        if(validCode){
+          const updateUser = await models.User.update({
+            status: 'Activo'
+          }, { where: {id: userExist.dataValues.id}})
+          .catch(err => {throw err})
+
+          if(updateUser) {
+            const message = properties.get("message.login.res.activateUserSuccessful");
+            return res.status(HttpStatus.StatusCodes.OK).json({ message });
+          }
+          else {
+            const message = properties.get("message.login.res.activateUserError");
+            return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+          }
+          
+        }
+        else {
+          const message = properties.get("message.login.res.invalidCode");
+          return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+        }
+      }
+      else{
+        const message = properties.get("message.login.res.userDontExist");
+      return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+      }
+
+    }catch(err){
+      console.log(err)
+      const message = properties.get("message.res.errorInternalServer");
+      return res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
+    }
+
+}
 
   module.exports = {
     findAll,
     create,
     update,
     updateUserRol,
-    logUser
+    logUser,
+    sendCode,
+    newPassword,
+    activateUser
   };
