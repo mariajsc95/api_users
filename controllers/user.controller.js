@@ -19,7 +19,7 @@ const getTransport = () => {
     pool: true,
     auth: {
       user: 'mariajsc.95@gmail.com',
-      pass: 'ggorsqdsxnwmeiqc'
+      pass: 'wkjbonbpouoesmym'
     },
     tls: {
       rejectUnauthorized: false,
@@ -226,7 +226,7 @@ const logUser = async(req, res, next) => {
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({message});
     }
     const userToLog =  await models.User.findOne({   
-            where: { usuario: user },
+            where: { usuario: user, password: password },
     }).catch(err=>{
       console.log("ERROR",err)
       const message = properties.get("message.login.res.notPasswordUserLogin");
