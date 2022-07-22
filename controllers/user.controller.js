@@ -227,6 +227,12 @@ const logUser = async(req, res, next) => {
     }
     const userToLog =  await models.User.findOne({   
             where: { usuario: user, password: password },
+            include: [{
+              model: models.Rol,
+              through: { attributes: ["uro_rol_id"] },
+              attributes: ["id","nombre"]
+            }],
+            attributes: ["id","status","usuario"],
     }).catch(err=>{
       console.log("ERROR",err)
       const message = properties.get("message.login.res.notPasswordUserLogin");
