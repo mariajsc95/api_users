@@ -20,6 +20,11 @@ module.exports = {
         nombre: 'Administrador',
         createdAt: new Date(),
         updatedAt: new Date()
+      },
+      {
+        nombre: 'Espia',
+        createdAt: new Date(),
+        updatedAt: new Date()
       }], {});
   },
 
