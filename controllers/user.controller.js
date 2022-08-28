@@ -1,8 +1,10 @@
+const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const HttpStatus = require("http-status-codes");
 const  models  = require("../models");
 const PropertiesReader = require("properties-reader");
 const crypto = require("../utils/encryptPassword");
+const config = process.env;
 
 
 const properties = PropertiesReader("./bin/common.properties");
@@ -241,6 +243,17 @@ const logUser = async(req, res, next) => {
     if(userToLog){
       console.log("USUARIO TO LOG", userToLog.dataValues)
       if(userToLog.dataValues.status === "Activo"){
+        const token = jwt.sign(
+          { user_id: userToLog.dataValues.id, user_username: userToLog.dataValues.usuario },
+          process.env.JWT_SECRET
+          ,
+          {
+            expiresIn: "2h",
+          }
+        );
+
+        userToLog.dataValues.token = token
+
         const message = properties.get("message.login.res.okData");
         return res.status(HttpStatus.StatusCodes.OK).json(userToLog.dataValues);
       }else {
@@ -444,6 +457,22 @@ const activateUser = async(req,res,next) => {
 
 }
 
+const check = async (req, res, next) => {
+  const token =
+  req.body.token || req.query.token || req.headers["x-access-token"];
+
+  if (!token) {
+    return res.status(403).send("A token is required for authentication");
+  }
+  try {
+    const decoded = jwt.verify(token, config.JWT_SECRET);
+    req.user = decoded;
+    return res.status(200).send("Valid Token");
+  } catch (err) {
+    return res.status(401).send("Invalid Token");
+  }
+};
+
   module.exports = {
     findAll,
     create,
@@ -452,5 +481,6 @@ const activateUser = async(req,res,next) => {
     logUser,
     sendCode,
     newPassword,
-    activateUser
+    activateUser,
+    check
   };

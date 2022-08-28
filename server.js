@@ -5,6 +5,10 @@ var corsOptions = {
   origin: "http://localhost:3001",
   credentials: true
 };
+
+///Read File .env
+require("dotenv").config();
+
 app.use(cors(corsOptions));
 // parse requests of content-type - application/json
 app.use(express.json());
