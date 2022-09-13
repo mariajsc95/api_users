@@ -11,6 +11,6 @@ module.exports = app => {
     router.post("/send-code/:type", users.sendCode)
     router.post("/change-password",users.newPassword)
     router.post("/activate-user",users.activateUser)
-    router.post("/welcome", users.check);
+    router.post("/check-user", users.check);
     app.use('/api/usuario', router);
   };
