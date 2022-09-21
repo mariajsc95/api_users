@@ -20,8 +20,8 @@ const getTransport = () => {
     secure: false,
     pool: true,
     auth: {
-      user: 'mariajsc.95@gmail.com',
-      pass: 'wkjbonbpouoesmym'
+      user: 'tandem.appcapture@gmail.com',
+      pass: 'cughgnsyrnsgmrsh'
     },
     tls: {
       rejectUnauthorized: false,
@@ -34,7 +34,7 @@ const sendEmail = async (data) => {
   console.log("SEND EMAIL");
   const transport = await getTransport();
   const message = {
-    from: 'mariajsc.95@gmail.com', // Sender address
+    from: 'tandem.appcapture@gmail.com', // Sender address
     to: email, // List of recipients
     subject: 'Envio de codigo', // Subject line
     text: `Se ha enviado el siguiente codigo para uso en la aplicacion: ${code}` + "\n\nCuenta no monitoreada no responda este correo", // Plain text body
