@@ -22,7 +22,12 @@ module.exports = {
         updatedAt: new Date()
       },
       {
-        nombre: 'Espia',
+        nombre: 'Spia',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        nombre: 'Empleado',
         createdAt: new Date(),
         updatedAt: new Date()
       }], {});

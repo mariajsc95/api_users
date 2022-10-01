@@ -118,7 +118,8 @@ const create = async (req, res, next) => {
         include: [{
           model: models.Rol,
           through: { attributes: ["uro_rol_id"] },
-        }], raw:true
+        }], raw:true,
+        attributes: ["id","status","usuario"]
       });
 
       if(users) {
