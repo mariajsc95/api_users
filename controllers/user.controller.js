@@ -30,14 +30,16 @@ const getTransport = () => {
 };
 
 const sendEmail = async (data) => {
-  const { email, username, code } = data;
-  console.log("SEND EMAIL");
+  const { email, type, code } = data;
+  console.log("SEND EMAIL", typeof type);
+  const userMessage = `Se ha enviado el nombre de usuario para uso en la aplicacion: ${code}` + "\n\nCuenta no monitoreada no responda este correo";
+  const codeMessage = `Se ha enviado el siguiente codigo para uso en la aplicacion: ${code}` + "\n\nCuenta no monitoreada no responda este correo"
   const transport = await getTransport();
   const message = {
     from: 'tandem.appcapture@gmail.com', // Sender address
     to: email, // List of recipients
-    subject: 'Envio de codigo', // Subject line
-    text: `Se ha enviado el siguiente codigo para uso en la aplicacion: ${code}` + "\n\nCuenta no monitoreada no responda este correo", // Plain text body
+    subject: type === '1' ? 'Envio de usuario' : 'Envio de codigo', // Subject line
+    text: type === '1' ? userMessage : codeMessage // Plain text body
   };
   //console.log(message);
   await transport.sendMail(message, function (err, info) {
@@ -287,7 +289,7 @@ const logUser = async(req, res, next) => {
 };
   
 const sendCode = async(req, res, next) => {
-  const { usuario, email} = req.body;
+  const { email} = req.body;
   const { type } =  req.params;
   try {
     let emailResponse;
@@ -295,9 +297,9 @@ const sendCode = async(req, res, next) => {
     let result = ''
     let length = 10 // Customize the length here.
     for (let i = length; i > 0; --i) result += characters[Math.round(Math.random() * (characters.length - 1))]
-
+      console.log('TIPO EN SENDCODE', type, typeof type)
       const userExist = await models.User.findOne({
-        where: {usuario: usuario}
+        where: {email: email}
       }).catch(err => {throw err})
       if(userExist){
         const regCode = await models.Codes.findOne({
@@ -313,8 +315,8 @@ const sendCode = async(req, res, next) => {
           if(updateCode){
             emailResponse = sendEmail({
               email: email,
-              username: usuario,
-              code: result
+              type: type,
+              code: type === '2' ? result : userExist.dataValues.usuario
             })
             console.log('EMAIL RESPONSE',emailResponse)
             if(!emailResponse.err){
@@ -338,8 +340,8 @@ const sendCode = async(req, res, next) => {
           if(newCode){
             emailResponse = sendEmail({
               email: email,
-              username: usuario,
-              code: result
+              type: type,
+              code: type === '2' ? result : userExist.dataValues.usuario
             })
             console.log('EMAIL RESPONSE',emailResponse)
             if(!emailResponse.err){
@@ -414,36 +416,43 @@ const newPassword = async(req, res, next) => {
 
 }
 
+//quizas no se use
 const activateUser = async(req,res,next) => {
-    const { usuario, code} = req.body;
+    const {code} = req.body;
     try{
-      const userExist = await models.User.findOne({
-        where: {usuario: usuario}
+      const codeExist = await models.Codes.findOne({
+        where: {codigo: code}
       }).catch(err => {throw err})
-      if(userExist) {
-        const validCode = await models.Codes.findOne({
-          where: {id_usuario: userExist.dataValues.id, codigo: code }
+      if(codeExist) {
+        const user = await models.User.findOne({
+          where: {id: codeExist.dataValues.id_usuario }
         }).catch(err => {throw err})
-        if(validCode){
-          const updateUser = await models.User.update({
-            status: 'Activo'
-          }, { where: {id: userExist.dataValues.id}})
-          .catch(err => {throw err})
+        console.log(user)
 
-          if(updateUser) {
-            const message = properties.get("message.login.res.activateUserSuccessful");
-            return res.status(HttpStatus.StatusCodes.OK).json({ message });
-          }
-          else {
-            const message = properties.get("message.login.res.activateUserError");
-            return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
-          }
-          
+        const updateUser = await models.User.update({
+          status: 'Activo'
+        }, { where: {id: user.dataValues.id}})
+        .catch(err => {throw err})
+
+        if(updateUser) {
+          const message = properties.get("message.login.res.activateUserSuccessful");
+          return res.status(HttpStatus.StatusCodes.OK).json({ message });
         }
         else {
-          const message = properties.get("message.login.res.invalidCode");
+          const message = properties.get("message.login.res.activateUserError");
           return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
         }
+
+        // if(validCode){
+          
+
+
+          
+        // }
+        // else {
+        //   const message = properties.get("message.login.res.invalidCode");
+        //   return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+        // }
       }
       else{
         const message = properties.get("message.login.res.userDontExist");
