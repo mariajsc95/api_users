@@ -289,7 +289,7 @@ const logUser = async(req, res, next) => {
 };
   
 const sendCode = async(req, res, next) => {
-  const { email} = req.body;
+  const { email, usuario} = req.body;
   const { type } =  req.params;
   try {
     let emailResponse;
@@ -298,9 +298,18 @@ const sendCode = async(req, res, next) => {
     let length = 10 // Customize the length here.
     for (let i = length; i > 0; --i) result += characters[Math.round(Math.random() * (characters.length - 1))]
       console.log('TIPO EN SENDCODE', type, typeof type)
-      const userExist = await models.User.findOne({
+     let userExist;
+      if(!usuario){
+        userExist = await models.User.findOne({
         where: {email: email}
       }).catch(err => {throw err})
+     }else {
+      userExist = await models.User.findOne({
+        where: {email: email, usuario: usuario}
+      }).catch(err => {throw err})
+     }
+     
+      
       if(userExist){
         const regCode = await models.Codes.findOne({
           where: { id_usuario: userExist.dataValues.id, tipo_codigo: type}
