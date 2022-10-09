@@ -81,6 +81,7 @@ const create = async (req, res, next) => {
         
         const user = await models.User.create({
           usuario: req.body.usuario,
+          email: req.body.email,
           password: req.body.password,
           status: req.body.status,
           createdAt: new Date(),
