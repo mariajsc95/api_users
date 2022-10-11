@@ -60,6 +60,7 @@ const sendEmail = async (data) => {
 const create = async (req, res, next) => {
     try {
       let tempUser = null;
+      let tempEmail = null;
   
       tempUser = await models.User.findOne({
         where: { usuario : req.body.usuario },
@@ -132,7 +133,7 @@ const create = async (req, res, next) => {
           model: models.Rol,
           through: { attributes: ["uro_rol_id"] },
         }], raw:true,
-        attributes: ["id","status","usuario"]
+        attributes: ["id","status","usuario","email"]
       });
 
       if(users) {
@@ -157,10 +158,27 @@ const create = async (req, res, next) => {
     const { id } = req.body;
     let hash = crypto.encrypt(req.body.usr_password);
       try {
+          let tempUser = null;
+          let tempEmail = null;
+          tempUser = await models.User.findOne({
+            where: { usuario : req.body.usuario, id: !id },
+          });
+    
+          tempEmail = await models.User.findOne({
+            where: { email : req.body.email, id: !id },
+          });
+
+          if(tempUser || tempEmail) {
+            const message = properties.get("message.user.res.userOrEmailAlredyExists");
+            res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message });
+            return;
+          }
+
           const [updated] = await models.User.update({
             usuario: req.body.usuario,
             password: hash,
             status: req.body.status,
+            email: req.body.email,
             updateAt: new Date(),
           }, {
             where: { id: id },
@@ -193,6 +211,7 @@ const create = async (req, res, next) => {
             res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
         }
       } catch (err) {
+        console.log(err)
         const message = properties.get("message.res.errorInternalServer");
         res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message, err });
       }
