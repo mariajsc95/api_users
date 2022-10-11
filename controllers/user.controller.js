@@ -65,6 +65,10 @@ const create = async (req, res, next) => {
         where: { usuario : req.body.usuario },
       });
 
+      tempEmail = await models.User.findOne({
+        where: { email : req.body.email },
+      });
+
      // console.log(tempUser)
   
       if(tempUser){
@@ -72,8 +76,14 @@ const create = async (req, res, next) => {
         res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message });
         return;
       }
+
+      if(tempEmail){
+        const message = properties.get("message.user.res.userAlredyExistsMail");
+        res.status(HttpStatus.StatusCodes.INTERNAL_SERVER_ERROR).json({ message });
+        return;
+      }
   
-        //let hash = crypto.encrypt(req.body.password);
+        let hash = crypto.encrypt(req.body.password);
         const rolId = await models.Rol.findOne({
           where: {nombre : req.body.rol},
         }).catch(err => {throw err})
@@ -82,7 +92,7 @@ const create = async (req, res, next) => {
         const user = await models.User.create({
           usuario: req.body.usuario,
           email: req.body.email,
-          password: req.body.password,
+          password: hash,
           status: req.body.status,
           createdAt: new Date(),
           updateAt: new Date(),
@@ -145,11 +155,11 @@ const create = async (req, res, next) => {
   const update = async (req, res, next) => {
  
     const { id } = req.body;
-    //let hash = crypto.encrypt(req.body.usr_password);
+    let hash = crypto.encrypt(req.body.usr_password);
       try {
           const [updated] = await models.User.update({
             usuario: req.body.usuario,
-            password: req.body.password,
+            password: hash,
             status: req.body.status,
             updateAt: new Date(),
           }, {
@@ -231,8 +241,21 @@ const logUser = async(req, res, next) => {
       const message = properties.get("message.login.res.notPassword");
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({message});
     }
+    let result;
+    const userValidate = await models.User.findOne({
+      where: {usuario: user}
+    }).catch(err=>{
+      console.log("ERROR",err)
+      const message = properties.get("message.login.res.notPasswordUserLogin");
+      return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
+    })
+
+    if(userValidate) {
+      result = crypto.validate(password, userValidate.dataValues.password) 
+    }
+    
     const userToLog =  await models.User.findOne({   
-            where: { usuario: user, password: password },
+            where: { usuario: user },
             include: [{
               model: models.Rol,
               through: { attributes: ["uro_rol_id"] },
@@ -244,7 +267,7 @@ const logUser = async(req, res, next) => {
       const message = properties.get("message.login.res.notPasswordUserLogin");
       return res.status(HttpStatus.StatusCodes.BAD_REQUEST).json({ message });
     })
-    if(userToLog){
+    if(userToLog && result){
       console.log("USUARIO TO LOG", userToLog.dataValues)
       if(userToLog.dataValues.status === "Activo"){
         const token = jwt.sign(
